@@ -1,0 +1,1226 @@
+{% load static %}
+{% load schedule_tags %}             <!-- Gerekli Django Etiketleri --> 
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ders Programı Oluşturucu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">  <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">  <!-- Font Awesome -->
+    <style>
+        :root {                             
+            --primary-color: #0d6efd;     
+            --primary-hover: #0b5ed7;                 /* Ana renk ve tema */
+            --secondary-color: #f8f9fa;
+            --border-color: #dee2e6;
+            --text-color: #212529;
+            --shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        body {
+            background-color: #f5f7fa;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), #0a58ca);
+            box-shadow: var(--shadow);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.5rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), #0a58ca);
+            color: white;
+            border-radius: 12px 12px 0 0 !important;
+            padding: 1rem 1.5rem;
+        }
+
+        .course-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            margin: 0.5rem;
+            border-radius: 8px;
+            cursor: move;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .course-item:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        
+        .course-item .badge {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            line-height: 32px;
+            font-size: 0.9rem;
+            border-radius: 50%;
+        }
+
+        .course-item .duration-badge {
+            background-color: #ffc107;
+            color: var(--text-color);
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            line-height: 32px;
+            font-size: 0.9rem;
+            border-radius: 50%;
+        }
+        
+        .schedule-cell {
+            min-height: 30px;
+            border: 1px solid var(--border-color);
+            padding: 4px;
+            background: white;
+        }
+        
+        .schedule-cell.dragover {
+            background-color: rgba(13, 110, 253, 0.1);
+            border: 2px dashed var(--primary-color);
+        }
+        
+        .time-slot {
+            font-weight: 600;
+            text-align: center;
+            background-color: var(--secondary-color);
+            font-size: 0.85rem;
+            padding: 8px 4px;
+        }
+        
+        .course-list {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 1rem;
+            background: white;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .dropped-course {
+            background: linear-gradient(135deg, var(--primary-color), #0a58ca);
+            color: white;
+            padding: 8px;
+            margin: 2px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            position: relative;
+            cursor: pointer;
+            box-sizing: border-box;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .dropped-course .remove-course {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .dropped-course:hover .remove-course {
+            display: block;
+        }
+
+        .remove-course:hover {
+            background-color: #c82333;
+        }
+
+        .table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table th {
+            background: var(--secondary-color);
+            font-weight: 600;
+            padding: 12px 8px;
+        }
+
+        .table td {
+            padding: 0;
+            vertical-align: top;
+        }
+
+        .modal-content {
+            border: none;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-color), #0a58ca);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border-color);
+            padding: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), #0a58ca);
+            border: none;
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-hover), #084298);
+            transform: translateY(-1px);
+        }
+
+        .btn-light {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+        }
+
+        .btn-light:hover {
+            background: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+
+        .excel-upload-card {
+            position: fixed;
+            bottom: 2rem;
+            left: 2rem;
+            width: 400px;
+            z-index: 1000;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .form-control {
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+        }
+
+        .classroom-list {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+
+        .classroom-item {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .classroom-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .classroom-number {
+            font-weight: 500;
+        }
+
+        .classroom-capacity {
+            background: rgba(255,255,255,0.2);
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+        }
+
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.dragover {
+            border-color: var(--primary-color);
+            background: rgba(13, 110, 253, 0.1);
+        }
+
+        .drop-zone.has-classroom {
+            border-style: solid;
+            border-color: var(--primary-color);
+            background: white;
+        }
+
+        /* Tablo genişleme stilleri */
+        .schedule-container {
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .schedule-container.expanded {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        .schedule-container.expanded-top {
+            margin-top: 0;
+        }
+
+        .schedule-container.expanded-both {
+            margin-left: 0;
+            margin-top: 0;
+            width: 100%;
+        }
+
+        .main-content {
+            transition: all 0.3s ease;
+            width: 75%;
+            margin-left: 0;
+        }
+
+        .main-content.expanded {
+            width: calc(100% - 50px) !important;
+            margin-left: 50px !important;
+        }
+
+        /* Ders programı tablosu sütun genişlikleri */
+        .schedule-container .table {
+            table-layout: fixed;
+            width: 100%;
+        }
+        .schedule-container .table th:first-child,
+        .schedule-container .table td:first-child {
+            width: 70px;
+            min-width: 70px;
+            max-width: 70px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .schedule-container .table th:not(:first-child),
+        .schedule-container .table td:not(:first-child) {
+            width: calc((100% - 70px) / 5);
+            text-align: center;
+        }
+
+        /* Sol panel ve içerik düzeni */
+        #leftPanel {
+            transition: all 0.3s ease;
+            width: 25%;
+            min-width: 25%;
+            max-width: 25%;
+        }
+
+        #leftPanel.collapsed {
+            width: 50px !important;
+            min-width: 50px !important;
+            max-width: 50px !important;
+        }
+
+        .main-content {
+            transition: all 0.3s ease;
+            width: 75%;
+            margin-left: 0;
+        }
+
+        .main-content.expanded {
+            width: calc(100% - 50px) !important;
+            margin-left: 50px !important;
+        }
+
+        .schedule-container {
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .schedule-container.expanded {
+            width: 100%;
+        }
+
+        /* Sağ panel stilleri */
+        #rightPanel {
+            transition: all 0.3s ease;
+            width: 25%;
+            min-width: 25%;
+            max-width: 25%;
+            position: fixed;
+            right: 0;
+            top: 80px; /* Navbar yüksekliği kadar */
+            bottom: 0;
+            padding: 1rem;
+            background: #f5f7fa;
+            z-index: 1000;
+        }
+
+        #rightPanel.collapsed {
+            width: 50px !important;
+            min-width: 50px !important;
+            max-width: 50px !important;
+        }
+
+        .main-content {
+            transition: all 0.3s ease;
+            width: 50%;
+            margin-left: 25%;
+            margin-right: 25%;
+        }
+
+        .main-content.expanded-left {
+            margin-left: 50px;
+            width: calc(75% - 50px);
+        }
+
+        .main-content.expanded-right {
+            margin-right: 50px;
+            width: calc(75% - 50px);
+        }
+
+        .main-content.expanded-both {
+            margin-left: 50px;
+            margin-right: 50px;
+            width: calc(100% - 100px);
+        }
+
+        .teacher-item {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .teacher-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .teacher-name {
+            font-weight: 500;
+        }
+
+        .teacher-short {
+            background: rgba(255,255,255,0.2);
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+        }
+
+        /* Sağ panel kapalıyken uzunlamasına buton */
+        .expand-button-right-vertical {
+            position: fixed;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            z-index: 2000;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 20px 0 0 20px;
+            width: 40px;
+            height: 90px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            flex-direction: column;
+            font-size: 1.2rem;
+        }
+
+        .expand-button-right-vertical.show {
+            display: flex !important;
+        }
+
+        /* Panel ve grid düzeni */
+        .side-panel {
+            min-width: 220px;
+            max-width: 350px;
+            transition: all 0.3s;
+        }
+        .side-panel.collapsed {
+            min-width: 48px !important;
+            max-width: 48px !important;
+            width: 48px !important;
+            overflow: hidden;
+            padding: 0 !important;
+        }
+        .side-panel .card-header, .side-panel .card-body {
+            transition: all 0.3s;
+        }
+        .side-panel.collapsed .card-header h5,
+        .side-panel.collapsed .card-body {
+            display: none !important;
+        }
+        .expand-button-vertical {
+            position: absolute;
+            top: 50%;
+            z-index: 10;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0 20px 20px 0;
+            width: 40px;
+            height: 90px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            flex-direction: column;
+            font-size: 1.2rem;
+            left: 0;
+            transform: translateY(-50%);
+        }
+        .expand-button-vertical.show {
+            display: flex !important;
+        }
+        .expand-button-vertical.right {
+            left: auto;
+            right: 0;
+            border-radius: 20px 0 0 20px;
+        }
+        @media (max-width: 991px) {
+            .side-panel { min-width: 100px; max-width: 100px; }
+            .main-content { min-width: 0; }
+        }
+        .main-layout {
+            display: flex;
+            width: 100%;
+            min-height: 80vh;
+            gap: 16px;
+        }
+        .side-panel {
+            width: 280px;
+            min-width: 200px;
+            max-width: 320px;
+            transition: all 0.3s;
+            background: transparent;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .side-panel.collapsed {
+            width: 48px !important;
+            min-width: 48px !important;
+            max-width: 48px !important;
+            padding: 0 !important;
+            overflow: hidden;
+        }
+        .main-content {
+            flex: 1 1 0%;
+            min-width: 320px;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        @media (max-width: 991px) {
+            .main-layout { flex-direction: column; }
+            .side-panel, .main-content { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+        }
+        .top-panel {
+            width: 100%;
+            margin-bottom: 24px;
+        }
+        .main-layout {
+            display: flex;
+            width: 100%;
+            min-height: 70vh;
+            gap: 16px;
+        }
+        .side-panel {
+            width: 280px;
+            min-width: 200px;
+            max-width: 320px;
+            transition: all 0.3s;
+            background: transparent;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .side-panel.collapsed {
+            width: 48px !important;
+            min-width: 48px !important;
+            max-width: 48px !important;
+            padding: 0 !important;
+            overflow: hidden;
+        }
+        .main-content {
+            flex: 1 1 0%;
+            min-width: 320px;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        @media (max-width: 991px) {
+            .main-layout { flex-direction: column; }
+            .side-panel, .main-content { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+        }
+        .card { min-height: 350px; }
+        #classroomsCard.card { min-height: unset; }
+        .expand-btn-corner {
+            position: fixed !important;
+            top: 70px;
+            width: 64px;
+            height: 64px;
+            border-radius: 10px;
+            display: none;
+            z-index: 3000;
+            background: var(--primary-color, #0d6efd);
+            color: #fff;
+            border: none;
+            font-size: 1.3rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: background 0.2s;
+            padding: 0;
+        }
+        .expand-btn-corner:hover { background: #084298; }
+        .expand-btn-left-corner { left: 24px; }
+        .expand-btn-right-corner { right: 24px; }
+        .expand-btn-label {
+            font-size: 0.72rem;
+            margin-top: 2px;
+            display: block;
+            text-align: center;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            line-height: 1.1;
+        }
+        @media (max-width: 991px) {
+            .expand-btn-corner { top: 16px; left: 10px; right: unset; width: 52px; height: 52px; font-size: 1.1rem; }
+            .expand-btn-right-corner { left: unset; right: 10px; }
+            .expand-btn-label { font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-calendar-alt me-2"></i>
+                Ders Programı Oluşturucu
+            </a>
+        </div>
+    </nav>
+
+    <!-- Sınıflar Paneli (Yukarıda ayrı bir container) -->
+    <div class="container mb-4">
+        <div class="card" id="classroomsCard">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-door-open me-2"></i>
+                    Sınıflar
+                </h5>
+                <button class="btn btn-light btn-sm" data-bs-toggle="collapse" data-bs-target="#classroomsBody" aria-expanded="true">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
+            </div>
+            <div class="collapse show" id="classroomsBody">
+                <div class="card-body classroom-list">
+                    <h3 class="mb-3">Sınıflar</h3>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for classroom in classrooms %}
+                        <div class="classroom-item" draggable="true" data-classroom-id="{{ classroom.id }}" data-classroom-number="{{ classroom.sinif_no }}" data-classroom-capacity="{{ classroom.kapasite }}">
+                            <span class="classroom-number">{{ classroom.sinif_no }}</span>
+                            <span class="classroom-capacity">{{ classroom.kapasite }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alt kısım: Bootstrap grid ile 3 panel -->
+    <div class="container-fluid position-relative" style="padding-top: 0;">
+        <div class="row g-3">
+            <!-- Sol Panel: Dersler ve Excel -->
+            <div class="col-md-2" id="leftPanelCol">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-book me-2"></i> Dersler ve Excel</h5>
+                        <button class="btn btn-light btn-sm" onclick="closePanel('leftPanelCol', 'showLeftExpand', 'mainContentCol')">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Dersler ve Excel içeriği -->
+                        <div class="mb-4">
+                            <h6 class="mb-3"><i class="fas fa-book me-2"></i>Dersler</h6>
+                            <div class="course-list" id="courseList">
+                                <!-- Dersler Excel'den yüklenecek -->
+                            </div>
+                        </div>
+                        <div>
+                            <h6 class="mb-3"><i class="fas fa-file-excel me-2"></i>Excel Dosyası Yükle</h6>
+                            <form id="uploadForm" enctype="multipart/form-data">
+                                <div class="mb-3">
+                                    <input type="file" class="form-control" id="excelFile" accept=".xlsx,.xls">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-upload me-2"></i> Yükle
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Sol Panel Açma Butonu -->
+            <button id="showLeftExpand" class="expand-btn-corner expand-btn-left-corner" onclick="openPanel('leftPanelCol', 'showLeftExpand')">
+                <span class="expand-btn-label">Ders panelini aç</span>
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            <!-- Orta Panel: Ders Programı -->
+            <div class="col-md-8" id="mainContentCol">
+                <div class="card schedule-container h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-calendar-week me-2"></i> Haftalık Ders Programı</h5>
+                        <button class="btn btn-light" onclick="saveSchedule()">
+                            <i class="fas fa-save me-2"></i> Kaydet
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div style="position: relative;">
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Saat</th>
+                                            <th>Pazartesi</th>
+                                            <th>Salı</th>
+                                            <th>Çarşamba</th>
+                                            <th>Perşembe</th>
+                                            <th>Cuma</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% with hours="08,09,10,11,12,13,14,15,16,17"|split:"," %}
+                                        {% for hour in hours %}
+                                            {% with minutes="00,15,30,45"|split:"," %}
+                                            {% for minute in minutes %}
+                                            {% if not hour == "17" or minute == "00" %}
+                                            <tr>
+                                                <td class="time-slot">{{ hour }}:{{ minute }}</td>
+                                                {% for day in "01234"|make_list %}
+                                                <td class="schedule-cell" data-day="{{ day }}" data-hour="{{ hour }}" data-minute="{{ minute }}"></td>
+                                                {% endfor %}
+                                            </tr>
+                                            {% endif %}
+                                            {% endfor %}
+                                            {% endwith %}
+                                        {% endfor %}
+                                        {% endwith %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="schedule-overlay" style="position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 10;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Sağ Panel: Öğretim Elemanları -->
+            <div class="col-md-2" id="rightPanelCol">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i> Öğretim Elemanları</h5>
+                        <button class="btn btn-light btn-sm" onclick="closePanel('rightPanelCol', 'showRightExpand', 'mainContentCol')">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="teacher-list">
+                            {% for ogretmen in ogretmenler %}
+                            <div class="teacher-item" data-teacher-id="{{ ogretmen.id }}">
+                                <span class="teacher-name">{{ ogretmen.ad_soyad }}</span>
+                                <span class="teacher-short">{{ ogretmen.kisaltma }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Sağ Panel Açma Butonu -->
+            <button id="showRightExpand" class="expand-btn-corner expand-btn-right-corner" onclick="openPanel('rightPanelCol', 'showRightExpand')">
+                <span class="expand-btn-label">Öğretmenler panelini aç</span>
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Ders Detay Modal -->
+    <div class="modal fade" id="courseDetailsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Ders Detayları
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="course-info">
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-hashtag text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted d-block">Ders Kodu</small>
+                                <span id="modalCourseCode" class="fw-bold"></span>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-book text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted d-block">Ders Adı</small>
+                                <span id="modalCourseName" class="fw-bold"></span>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-chalkboard-teacher text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted d-block">Öğretim Üyesi</small>
+                                <span id="modalInstructor" class="fw-bold"></span>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-users text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted d-block">Toplam Öğrenci</small>
+                                <span id="modalTotalStudents" class="fw-bold"></span>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="fas fa-clock text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted d-block">Süre</small>
+                                <span id="modalDuration" class="fw-bold"></span> dakika
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="classroom-drop-zone mt-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-door-open text-primary me-2"></i>
+                            Sınıf Seçimi
+                        </h6>
+                        <div class="drop-zone" id="classroomDropZone" style="min-height: 100px; border: 2px dashed #dee2e6; border-radius: 8px; padding: 1rem; text-align: center; background: #f8f9fa; transition: all 0.3s ease;">
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-arrow-down me-2"></i>
+                                Sınıfı buraya sürükleyin
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="deleteCourse()">
+                        <i class="fas fa-trash me-2"></i> Dersi Sil
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        // Global değişkenler
+        let lastOpenedCourseDiv = null;
+
+        // Toggle fonksiyonları
+        function togglePanel(panelId, expandBtnId) {
+            const panel = document.getElementById(panelId);
+            const expandBtn = document.getElementById(expandBtnId);
+            if (panel.classList.contains('d-none')) {
+                panel.classList.remove('d-none');
+                if (expandBtn) expandBtn.style.display = 'none';
+            } else {
+                panel.classList.add('d-none');
+                if (expandBtn) expandBtn.style.display = 'flex';
+            }
+        }
+
+        function toggleLeftPanel() {
+            const leftPanel = document.getElementById('leftPanel');
+            leftPanel.classList.toggle('d-none');
+        }
+        function toggleRightPanel() {
+            const rightPanel = document.getElementById('rightPanel');
+            rightPanel.classList.toggle('d-none');
+        }
+
+        function toggleClassrooms() {
+            console.log('toggleClassrooms called');
+            const card = document.getElementById('classroomsCard');
+            const icon = document.getElementById('classroomsToggleIcon');
+            const scheduleContainer = document.getElementById('scheduleContainer');
+            
+            if (card.classList.contains('collapsed-top')) {
+                console.log('Expanding classrooms section');
+                card.classList.remove('collapsed-top');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+                card.querySelector('.card-body').style.display = 'block';
+                scheduleContainer.classList.remove('expanded-top');
+                if (document.getElementById('coursesCard').classList.contains('collapsed-left')) {
+                    scheduleContainer.classList.remove('expanded-both');
+                }
+            } else {
+                console.log('Collapsing classrooms section');
+                card.classList.add('collapsed-top');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+                card.querySelector('.card-body').style.display = 'none';
+                scheduleContainer.classList.add('expanded-top');
+                if (document.getElementById('coursesCard').classList.contains('collapsed-left')) {
+                    scheduleContainer.classList.add('expanded-both');
+                }
+            }
+        }
+
+        function toggleTeachers() {
+            const rightPanel = document.getElementById('rightPanel');
+            const expandButton = document.getElementById('expandButtonRightVertical');
+            if (rightPanel.classList.contains('collapsed')) {
+                rightPanel.classList.remove('collapsed');
+                expandButton.classList.remove('show');
+            } else {
+                rightPanel.classList.add('collapsed');
+                expandButton.classList.add('show');
+            }
+        }
+
+        // Diğer yardımcı fonksiyonlar
+        function handleDragStart(e) {
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                courseId: e.target.dataset.courseId,
+                duration: e.target.dataset.duration
+            }));
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            e.target.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.target.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const cell = e.target.closest('.schedule-cell');
+            cell.classList.remove('dragover');
+
+            // Sınıf verisi kontrolü
+            const classroomData = e.dataTransfer.getData('application/classroom');
+            if (classroomData) {
+                const classroom = JSON.parse(classroomData);
+                const existingCourse = cell.querySelector('.dropped-course');
+                if (existingCourse) {
+                    existingCourse.classList.add('with-classroom');
+                    existingCourse.dataset.classroomId = classroom.classroomId;
+                    existingCourse.dataset.classroomNo = classroom.classroomNo;
+                    existingCourse.dataset.classroomCapacity = classroom.classroomCapacity;
+                    return;
+                }
+            }
+
+            // Normal ders sürükleme işlemi
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            const courseId = data.courseId;
+            const duration = parseInt(data.duration);
+            const courseElement = document.querySelector(`[data-course-id="${courseId}"]`);
+
+            if (cell.querySelector('.dropped-course')) return;
+
+            const droppedCourse = document.createElement('div');
+            droppedCourse.className = 'dropped-course';
+            droppedCourse.dataset.courseId = courseId;
+            droppedCourse.style.position = 'absolute';
+            droppedCourse.style.left = 0;
+            droppedCourse.style.right = 0;
+            droppedCourse.style.top = 0;
+            droppedCourse.style.width = '100%';
+            droppedCourse.style.cursor = 'pointer';
+            droppedCourse.style.display = 'flex';
+            droppedCourse.style.alignItems = 'center';
+            droppedCourse.style.justifyContent = 'center';
+            droppedCourse.style.zIndex = 2;
+            droppedCourse.innerHTML = `<div style="font-weight:bold; width:100%; text-align:center;">${courseElement.querySelector('strong').textContent}</div>`;
+
+            let totalHeight = 0;
+            let currentRow = cell.parentElement;
+            let colIndex = cell.cellIndex;
+            for (let i = 0; i < Math.ceil(duration / 15); i++) {
+                if (currentRow) {
+                    const targetCell = currentRow.children[colIndex];
+                    if (targetCell) {
+                        totalHeight += targetCell.offsetHeight;
+                    }
+                    currentRow = currentRow.nextElementSibling;
+                }
+            }
+            droppedCourse.style.height = totalHeight + 'px';
+
+            cell.style.position = 'relative';
+            cell.appendChild(droppedCourse);
+
+            droppedCourse.addEventListener('click', function(e) {
+                e.stopPropagation();
+                showCourseModal(
+                    droppedCourse,
+                    courseElement.querySelector('strong').textContent,
+                    courseElement.querySelector('.badge.bg-primary')?.textContent || '',
+                    duration,
+                    '', // instructor
+                    droppedCourse.dataset.classroomNo || '-' // classroom
+                );
+            });
+        }
+
+        function showCourseModal(courseDiv, courseTitle, courseStudents, courseDuration, courseInstructor, courseClassroom) {
+            lastOpenedCourseDiv = courseDiv;
+            document.getElementById('modalCourseName').textContent = courseTitle;
+            document.getElementById('modalTotalStudents').textContent = courseStudents;
+            document.getElementById('modalDuration').textContent = courseDuration;
+            document.getElementById('modalInstructor').textContent = courseInstructor || '-';
+            const modal = new bootstrap.Modal(document.getElementById('courseDetailsModal'));
+            modal.show();
+        }
+
+        function saveSchedule() {
+            const schedule = [];
+            document.querySelectorAll('.schedule-cell').forEach(cell => {
+                const courses = cell.querySelectorAll('.dropped-course');
+                courses.forEach(course => {
+                    schedule.push({
+                        course_id: course.dataset.courseId,
+                        day: parseInt(cell.dataset.day),
+                        start_time: `${cell.dataset.hour}:${cell.dataset.minute}`,
+                        end_time: calculateEndTime(cell.dataset.hour, cell.dataset.minute, course.dataset.duration)
+                    });
+                });
+            });
+
+            console.log('Kaydedilen program:', schedule);
+            alert('Program başarıyla kaydedildi!');
+        }
+
+        function calculateEndTime(hour, minute, duration) {
+            let totalMinutes = parseInt(hour) * 60 + parseInt(minute) + parseInt(duration);
+            let endHour = Math.floor(totalMinutes / 60);
+            let endMinute = totalMinutes % 60;
+            return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+        }
+
+        function deleteCourse() {
+            if (lastOpenedCourseDiv) {
+                lastOpenedCourseDiv.remove();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('courseDetailsModal'));
+                if (modal) {
+                    modal.hide();
+                }
+            }
+        }
+
+        function closePanel(panelId, expandBtnId, mainColId) {
+            const panel = document.getElementById(panelId);
+            const expandBtn = document.getElementById(expandBtnId);
+            const mainCol = document.getElementById(mainColId);
+            panel.classList.add('d-none');
+            expandBtn.style.display = 'flex';
+            // Genişlet
+            if (panelId === 'leftPanelCol' && !document.getElementById('rightPanelCol').classList.contains('d-none')) {
+                mainCol.classList.remove('col-md-8');
+                mainCol.classList.add('col-md-10');
+            } else if (panelId === 'rightPanelCol' && !document.getElementById('leftPanelCol').classList.contains('d-none')) {
+                mainCol.classList.remove('col-md-8');
+                mainCol.classList.add('col-md-10');
+            } else if (document.getElementById('leftPanelCol').classList.contains('d-none') && document.getElementById('rightPanelCol').classList.contains('d-none')) {
+                mainCol.classList.remove('col-md-8', 'col-md-10');
+                mainCol.classList.add('col-12');
+            }
+        }
+        function openPanel(panelId, expandBtnId) {
+            const panel = document.getElementById(panelId);
+            const expandBtn = document.getElementById(expandBtnId);
+            const mainCol = document.getElementById('mainContentCol');
+            panel.classList.remove('d-none');
+            expandBtn.style.display = 'none';
+            // Küçült
+            if (!document.getElementById('leftPanelCol').classList.contains('d-none') && !document.getElementById('rightPanelCol').classList.contains('d-none')) {
+                mainCol.classList.remove('col-md-10', 'col-12');
+                mainCol.classList.add('col-md-8');
+            } else if (!document.getElementById('leftPanelCol').classList.contains('d-none') || !document.getElementById('rightPanelCol').classList.contains('d-none')) {
+                mainCol.classList.remove('col-12', 'col-md-8');
+                mainCol.classList.add('col-md-10');
+            }
+        }
+
+        // Sayfa yüklendiğinde çalışacak kodlar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded');
+            
+            // Drag and Drop işlemleri
+            const courseItems = document.querySelectorAll('.course-item');
+            const scheduleCells = document.querySelectorAll('.schedule-cell');
+
+            courseItems.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+            });
+
+            scheduleCells.forEach(cell => {
+                cell.addEventListener('dragover', handleDragOver);
+                cell.addEventListener('drop', handleDrop);
+                cell.addEventListener('dragenter', handleDragEnter);
+                cell.addEventListener('dragleave', handleDragLeave);
+            });
+
+            // Excel yükleme işlemi
+            document.getElementById('uploadForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData();
+                const fileInput = document.getElementById('excelFile');
+                formData.append('excel_file', fileInput.files[0]);
+
+                // Excel dosyasını oku ve dersleri ekle
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+
+                    // Ders listesini temizle
+                    const courseList = document.getElementById('courseList');
+                    courseList.innerHTML = '';
+
+                    // Her satır için ders ekle (ilk satırı atla)
+                    jsonData.slice(2).forEach((row, index) => {
+                        if (row[2] && row[3]) { // Ders kodu ve adı varsa
+                            const courseItem = document.createElement('div');
+                            courseItem.className = 'course-item';
+                            courseItem.draggable = true;
+                            courseItem.dataset.courseId = index + 1;
+                            // Son sütundan süre bilgisini al
+                            const duration = row[row.length - 1] || 60;
+                            courseItem.dataset.duration = duration;
+
+                            courseItem.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <strong class="d-block">${row[3]}</strong>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-primary rounded-circle">${row[7] || 0}</span>
+                                        <span class="badge duration-badge rounded-circle">${duration}'</span>
+                                    </div>
+                                </div>
+                            `;
+
+                            courseItem.addEventListener('dragstart', handleDragStart);
+                            courseList.appendChild(courseItem);
+                        }
+                    });
+                };
+                reader.readAsArrayBuffer(fileInput.files[0]);
+            });
+
+            // Sınıf sürükleme işlemleri
+            document.querySelectorAll('.classroom-item').forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        id: item.dataset.classroomId,
+                        number: item.dataset.classroomNumber,
+                        capacity: item.dataset.classroomCapacity
+                    }));
+                });
+            });
+
+            const dropZone = document.getElementById('classroomDropZone');
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                
+                const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                dropZone.innerHTML = `
+                    <div class="selected-classroom">
+                        <span class="classroom-number">${data.number}</span>
+                        <span class="classroom-capacity">${data.capacity}</span>
+                    </div>
+                `;
+                dropZone.classList.add('has-classroom');
+            });
+
+            // Sayfa yüklendiğinde butonu gizle
+            document.getElementById('expandButtonLeftVertical').classList.remove('show');
+        });
+    </script>
+</body>
+</html> 

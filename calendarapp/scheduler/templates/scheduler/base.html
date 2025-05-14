@@ -1,0 +1,402 @@
+<!-- scheduler/templates/scheduler/base.html -->
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ders Programı Planlayıcısı</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- jQuery UI CSS -->
+    <link href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f8f9fa;
+        }
+        .course-item {
+            background-color: #fff;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            padding: 10px;
+            cursor: grab;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .course-item:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .schedule-cell {
+            height: 60px;
+            padding: 0;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+            position: relative;
+        }
+        .time-slot {
+            height: 30px;
+            border-bottom: 1px dashed #dee2e6;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .hour-label {
+            text-align: right;
+            padding-right: 10px;
+            width: 60px;
+            font-weight: bold;
+        }
+        .scheduled-course {
+            position: absolute;
+            width: 95%;
+            color: #fff;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            overflow: hidden;
+            cursor: grab;
+            z-index: 10;
+        }
+        .scheduled-course .remove-btn {
+            cursor: pointer;
+            position: absolute;
+            right: 2px;
+            top: 2px;
+            background-color: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            text-align: center;
+            line-height: 16px;
+            font-size: 10px;
+            display: none;
+        }
+        .scheduled-course:hover .remove-btn {
+            display: block;
+        }
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            padding: 10px 0;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-center">Ders Programı Planlayıcısı</h1>
+            </div>
+        </div>
+        
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- jQuery ve Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
+<!-- scheduler/templates/scheduler/index.html -->
+{% extends 'scheduler/base.html' %}
+
+{% block content %}
+<div class="row">
+    <!-- Sol Panel - Ders Listesi -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Dersler</h5>
+            </div>
+            <div class="card-body">
+                <!-- Excel Yükleme Formu -->
+                <form id="excel-upload-form" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        {{ upload_form.excel_file.label_tag }}
+                        {{ upload_form.excel_file }}
+                        <div class="form-text">{{ upload_form.excel_file.help_text }}</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mb-4">Dersleri Yükle</button>
+                </form>
+                
+                <h6>Sürükle & Bırak Dersleri</h6>
+                <div id="course-list">
+                    {% for course in courses %}
+                    <div class="course-item" data-id="{{ course.id }}" data-color="{{ course.color }}">
+                        <div class="fw-bold">{{ course.code }}</div>
+                        <div>{{ course.name }}</div>
+                        {% if course.instructor %}
+                        <div class="small text-muted">{{ course.instructor }}</div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="alert alert-info">
+                        Henüz ders bulunmuyor. Lütfen Excel dosyası yükleyin.
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-4">
+                    <button id="save-schedule-btn" class="btn btn-success">Programı Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sağ Panel - Haftalık Takvim -->
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Haftalık Ders Programı</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="schedule-table">
+                        <thead>
+                            <tr>
+                                <th class="hour-label"></th>
+                                <th class="day-header">Pazartesi</th>
+                                <th class="day-header">Salı</th>
+                                <th class="day-header">Çarşamba</th>
+                                <th class="day-header">Perşembe</th>
+                                <th class="day-header">Cuma</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hour in "8910111213141516171819"|make_list %}
+                            <tr>
+                                <td class="hour-label">{{ hour }}:00</td>
+                                {% for day in "01234"|make_list %}
+                                <td class="schedule-cell" data-day="{{ day }}" data-hour="{{ hour }}"></td>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                <td class="hour-label">{{ hour }}:30</td>
+                                {% for day in "01234"|make_list %}
+                                <td class="schedule-cell" data-day="{{ day }}" data-hour="{{ hour }}.5"></td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Zamana çevirme fonksiyonları
+    function parseTime(timeStr) {
+        const [hour, minute] = timeStr.split(':').map(Number);
+        return hour + (minute / 60);
+    }
+    
+    function formatTime(timeFloat) {
+        const hour = Math.floor(timeFloat);
+        const minute = Math.round((timeFloat - hour) * 60);
+        return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    }
+    
+    // Takvim konumlarını hesaplama
+    function calculatePosition(startTime, endTime) {
+        const startHour = parseTime(startTime);
+        const endHour = parseTime(endTime);
+        
+        // Takvim 8:00'dan başlıyor, ona göre pozisyon ve yükseklik hesaplanıyor
+        const startPos = (startHour - 8) * 60;
+        const height = (endHour - startHour) * 60;
+        
+        return {
+            top: startPos,
+            height: height
+        };
+    }
+    
+    $(document).ready(function() {
+        // Excel dosyası yükleme
+        $('#excel-upload-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            $.ajax({
+                url: '{% url "scheduler:upload_excel" %}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        alert('Dersler başarıyla yüklendi!');
+                        // Sayfayı yenile
+                        location.reload();
+                    } else {
+                        alert('Hata: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Dosya yüklenirken bir hata oluştu.');
+                }
+            });
+        });
+        
+        // Dersleri sürüklenebilir yapma
+        $('.course-item').draggable({
+            helper: 'clone',
+            revert: 'invalid',
+            zIndex: 100,
+            start: function(event, ui) {
+                $(ui.helper).width($(this).width());
+            }
+        });
+        
+        // Takvim hücrelerini bırakılabilir yapma
+        $('.schedule-cell').droppable({
+            accept: '.course-item',
+            drop: function(event, ui) {
+                const courseId = ui.draggable.data('id');
+                const courseCode = ui.draggable.find('.fw-bold').text();
+                const courseName = ui.draggable.find('div:eq(1)').text();
+                const courseColor = ui.draggable.data('color');
+                const day = $(this).data('day');
+                const hour = $(this).data('hour');
+                
+                // Varsayılan olarak 1 saat süreli ders ekleme
+                const startTime = formatTime(hour);
+                const endTime = formatTime(hour + 1);
+                
+                // Takvime ders ekle
+                addCourseToSchedule({
+                    course_id: courseId,
+                    title: courseName,
+                    code: courseCode,
+                    day: day,
+                    start_time: startTime,
+                    end_time: endTime,
+                    color: courseColor
+                });
+            }
+        });
+        
+        // Kayıtlı dersleri takvime yükleme
+        // const scheduledCourses = {% autoescape off %}{{ scheduled_courses_json }}{% endautoescape %};
+        
+        $.each(scheduledCourses, function(i, course) {
+            addCourseToSchedule(course);
+        });
+        
+        // Fonksiyon: Takvime ders ekleme
+        function addCourseToSchedule(course) {
+            const position = calculatePosition(course.start_time, course.end_time);
+            
+            // Ders div'ini oluştur
+            const $courseDiv = $('<div>')
+                .addClass('scheduled-course')
+                .css({
+                    'top': position.top + 'px',
+                    'height': position.height + 'px',
+                    'background-color': course.color
+                })
+                .attr('data-course-id', course.course_id)
+                .attr('data-day', course.day)
+                .attr('data-start', course.start_time)
+                .attr('data-end', course.end_time);
+            
+            // İçeriğini ekle
+            $courseDiv.html(`
+                <div class="fw-bold">${course.code}</div>
+                <div>${course.title}</div>
+                <div class="remove-btn"><i class="fas fa-times"></i></div>
+            `);
+            
+            // Takvime ekle
+            $(`.schedule-cell[data-day="${course.day}"]`).first().append($courseDiv);
+            
+            // Ders öğelerini yeniden düzenlenebilir yapma
+            $courseDiv.draggable({
+                containment: '#schedule-table',
+                grid: [0, 30], // 30 dakikalık aralıklarla hareket etsin
+                stop: function(event, ui) {
+                    // Yeni konuma göre başlangıç ve bitiş saatlerini güncelle
+                    const $cell = $(this).closest('.schedule-cell');
+                    const day = $cell.data('day');
+                    const top = $(this).position().top;
+                    
+                    // Yüksekliğine göre saat hesaplama
+                    const startHour = 8 + (top / 60);
+                    const endHour = startHour + ($(this).height() / 60);
+                    
+                    $(this)
+                        .attr('data-day', day)
+                        .attr('data-start', formatTime(startHour))
+                        .attr('data-end', formatTime(endHour));
+                }
+            }).resizable({
+                grid: [0, 30], // 30 dakikalık aralıklarla boyutlandırma
+                handles: 's', // Sadece alt kenardan boyutlandırılabilir
+                containment: '#schedule-table',
+                stop: function(event, ui) {
+                    // Yeni boyuta göre bitiş saatini güncelle
+                    const top = $(this).position().top;
+                    const height = $(this).height();
+                    
+                    const startHour = 8 + (top / 60);
+                    const endHour = startHour + (height / 60);
+                    
+                    $(this)
+                        .attr('data-start', formatTime(startHour))
+                        .attr('data-end', formatTime(endHour));
+                }
+            });
+            
+            // Kaldırma düğmesine tıklama olayı
+            $courseDiv.find('.remove-btn').on('click', function(e) {
+                e.stopPropagation();
+                $(this).closest('.scheduled-course').remove();
+            });
+        }
+        
+        // Programı kaydetme
+        $('#save-schedule-btn').on('click', function() {
+            const scheduledCourses = [];
+            
+            $('.scheduled-course').each(function() {
+                scheduledCourses.push({
+                    course_id: $(this).data('course-id'),
+                    day: $(this).data('day'),
+                    start_time: $(this).data('start'),
+                    end_time: $(this).data('end')
+                });
+            });
+            
+            $.ajax({
+                url: '{% url "scheduler:save_schedule" %}',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(scheduledCourses),
+                success: function(response) {
+                    if (response.success) {
+                        alert('Program başarıyla kaydedildi!');
+                    } else {
+                        alert('Hata: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Program kaydedilirken bir hata oluştu.');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
