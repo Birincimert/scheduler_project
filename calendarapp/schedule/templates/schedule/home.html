@@ -127,6 +127,11 @@
             cursor: pointer;
             box-sizing: border-box;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
 
         .dropped-course .remove-course {
@@ -643,6 +648,48 @@
             .expand-btn-right-corner { left: unset; right: 10px; }
             .expand-btn-label { font-size: 0.65rem; }
         }
+        .dropped-course.partial-assigned {
+            background: linear-gradient(135deg, #ffe066, #ffd60a) !important; /* Sarı */
+            color: #333 !important;
+        }
+        .dropped-course.fully-assigned {
+            background: linear-gradient(135deg, #51cf66, #2f9e44) !important; /* Yeşil */
+            color: #fff !important;
+        }
+        .badge.bg-info.d-flex.flex-column.align-items-center {
+            min-width: 40px !important;
+            padding: 4px 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 1em !important;
+            line-height: 1.1 !important;
+            gap: 1px;
+            overflow: hidden;
+            word-break: break-word;
+        }
+        .badge.bg-info.d-flex.flex-column.align-items-center span {
+            width: 100%;
+            text-align: center;
+            font-size: 1em;
+            line-height: 1.1;
+            word-break: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .badge.bg-info.d-flex.flex-column.align-items-center span:last-child {
+            font-size: 0.8em;
+            opacity: 0.85;
+        }
+        @media (max-width: 600px) {
+            .badge.bg-info.d-flex.flex-column.align-items-center {
+                font-size: 0.85em !important;
+                min-width: 32px !important;
+                max-width: 36px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -853,14 +900,9 @@
                     <div class="classroom-drop-zone mt-3">
                         <h6 class="mb-3">
                             <i class="fas fa-door-open text-primary me-2"></i>
-                            Sınıf Seçimi
+                            Sınıf
                         </h6>
-                        <div class="drop-zone" id="classroomDropZone" style="min-height: 100px; border: 2px dashed #dee2e6; border-radius: 8px; padding: 1rem; text-align: center; background: #f8f9fa; transition: all 0.3s ease;">
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-arrow-down me-2"></i>
-                                Sınıfı buraya sürükleyin
-                            </p>
-                        </div>
+                        <div id="classroomDropZone"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -968,18 +1010,31 @@
             const cell = e.target.closest('.schedule-cell');
             cell.classList.remove('dragover');
 
-            // Sınıf verisi kontrolü
+            // Sınıf bırakma
             const classroomData = e.dataTransfer.getData('application/classroom');
             if (classroomData) {
                 const classroom = JSON.parse(classroomData);
                 const existingCourse = cell.querySelector('.dropped-course');
                 if (existingCourse) {
-                    existingCourse.classList.add('with-classroom');
                     existingCourse.dataset.classroomId = classroom.classroomId;
                     existingCourse.dataset.classroomNo = classroom.classroomNo;
                     existingCourse.dataset.classroomCapacity = classroom.classroomCapacity;
-                    return;
+                    updateCourseBadge(existingCourse);
                 }
+                return;
+            }
+
+            // Öğretim elemanı bırakma
+            const teacherData = e.dataTransfer.getData('application/teacher');
+            if (teacherData) {
+                const teacher = JSON.parse(teacherData);
+                const existingCourse = cell.querySelector('.dropped-course');
+                if (existingCourse) {
+                    existingCourse.dataset.teacherId = teacher.teacherId;
+                    existingCourse.dataset.teacherShort = teacher.teacherShort;
+                    updateCourseBadge(existingCourse);
+                }
+                return;
             }
 
             // Normal ders sürükleme işlemi
@@ -1035,12 +1090,45 @@
             });
         }
 
+        function updateCourseBadge(courseDiv) {
+            const classroomNo = courseDiv.dataset.classroomNo;
+            const teacherShort = courseDiv.dataset.teacherShort;
+            // Önce eski badge'leri sil
+            courseDiv.querySelectorAll('.badge.bg-info').forEach(b => b.remove());
+            // Arka plan sınıflarını kaldır
+            courseDiv.classList.remove('partial-assigned', 'fully-assigned');
+            // Badge ekle
+            if (classroomNo) {
+                courseDiv.innerHTML += `
+                    <span class="ms-2 badge bg-info d-flex flex-column align-items-center" style="min-width:40px;">
+                        <span>${classroomNo}</span>
+                        ${teacherShort ? `<span style=\"font-size:0.8em;\">${teacherShort}</span>` : ''}
+                    </span>
+                `;
+            }
+            // Renk mantığı
+            if ((classroomNo && !teacherShort) || (!classroomNo && teacherShort)) {
+                courseDiv.classList.add('partial-assigned');
+            } else if (classroomNo && teacherShort) {
+                courseDiv.classList.add('fully-assigned');
+            }
+            // Hiçbiri yoksa ekstra sınıf ekleme, varsayılan kalsın
+        }
+
         function showCourseModal(courseDiv, courseTitle, courseStudents, courseDuration, courseInstructor, courseClassroom) {
             lastOpenedCourseDiv = courseDiv;
             document.getElementById('modalCourseName').textContent = courseTitle;
             document.getElementById('modalTotalStudents').textContent = courseStudents;
             document.getElementById('modalDuration').textContent = courseDuration;
-            document.getElementById('modalInstructor').textContent = courseInstructor || '-';
+            // Öğretim elemanı kısaltmasını göster
+            let teacherShort = courseDiv?.dataset.teacherShort || courseInstructor || '-';
+            document.getElementById('modalInstructor').textContent = teacherShort;
+
+            // Sınıf bilgisini modalda göster (atanmışsa göster, yoksa boş bırak)
+            let classroomNo = courseDiv?.dataset.classroomNo || courseClassroom || '';
+            document.getElementById('classroomDropZone').innerHTML = classroomNo
+                ? `<div class="selected-classroom"><span class="classroom-number">${classroomNo}</span></div>`
+                : '';
             const modal = new bootstrap.Modal(document.getElementById('courseDetailsModal'));
             modal.show();
         }
@@ -1186,10 +1274,10 @@
             // Sınıf sürükleme işlemleri
             document.querySelectorAll('.classroom-item').forEach(item => {
                 item.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('text/plain', JSON.stringify({
-                        id: item.dataset.classroomId,
-                        number: item.dataset.classroomNumber,
-                        capacity: item.dataset.classroomCapacity
+                    e.dataTransfer.setData('application/classroom', JSON.stringify({
+                        classroomId: item.dataset.classroomId,
+                        classroomNo: item.dataset.classroomNumber,
+                        classroomCapacity: item.dataset.classroomCapacity
                     }));
                 });
             });
@@ -1216,6 +1304,17 @@
                     </div>
                 `;
                 dropZone.classList.add('has-classroom');
+            });
+
+            // Öğretim elemanı sürükleme işlemleri
+            document.querySelectorAll('.teacher-item').forEach(item => {
+                item.setAttribute('draggable', 'true');
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('application/teacher', JSON.stringify({
+                        teacherId: item.dataset.teacherId,
+                        teacherShort: item.querySelector('.teacher-short').textContent
+                    }));
+                });
             });
 
             // Sayfa yüklendiğinde butonu gizle
